@@ -36,8 +36,16 @@ export class UsersService {
     return await this.userRepository.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: string) {
+    const FindedUser: User[] | undefined = await this.userRepository.findBy({
+      id: id
+    })
+
+    if (!FindedUser)
+      return {}
+    else {
+      return FindedUser
+    }
   }
 
   update(id: number, updateUserDto: UpdateUserDto) {

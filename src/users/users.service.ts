@@ -53,6 +53,6 @@ export class UsersService {
   }
 
   remove(id: number) {
-    return `This action removes a #${id} user`;
+    return `se você esta vendo isso você automatizou o deploy`;
   }
 }

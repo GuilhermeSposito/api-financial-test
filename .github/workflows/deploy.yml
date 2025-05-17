@@ -27,9 +27,9 @@ jobs:
             username: "root"
             key: ${{ secrets.SERVER_SSH_KEY }}
             script: |
-                cd /sistema
+                cd ..
+                cd /var/www/api-financial/api-financial-test
                 npm install
                 npm run migrations:run
                 npm run build
-                pm2 restart all
-                pm2 save       
+                pm2 restart api-financial   

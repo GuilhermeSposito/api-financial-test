@@ -53,6 +53,6 @@ export class UsersService {
   }
 
   remove(id: number) {
-    return `Teste 2 `;
+    return `Se você esta lendo isso deu certo a automação do deploy no servidor`;
   }
 }

@@ -1,0 +1,35 @@
+name: scp files
+on: 
+    push:
+        branches:
+        - main
+jobs:
+  build_deploy:
+     runs-on: ubuntu-latest
+
+     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+       
+      - name: Copy files via SSH
+        uses: appleboy/scp-action@v1
+        with:
+          host: "178.16.143.133"
+          username: "root"
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "."
+          target: "/api-financial"
+        
+      - name: "Build Da aplicação"
+        uses: appleboy/ssh-action@v1
+        with:
+            host: "178.16.143.133"
+            username: "root"
+            key: ${{ secrets.SERVER_SSH_KEY }}
+            script: |
+                cd /sistema
+                npm install
+                npm run migrations:run
+                npm run build
+                pm2 restart all
+                pm2 save       

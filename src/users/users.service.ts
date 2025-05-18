@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -6,12 +6,24 @@ import { Repository } from 'typeorm';
 import { UserRepository } from './user.UserRepository';
 import { User } from 'src/database/entities/User.entity';
 import { hash as bcryptHashAsync, compare } from 'bcrypt'
-import { v4 as uuid } from 'uuid';
+import { v4 as uuid, validate as IsUUID } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { UserLoginDto } from '../auth/dto/user.dto.login'
 
+type errorString = {
+  id: string
+  description: string
+}
+
 @Injectable()
 export class UsersService {
+
+  private errorStrings: errorString[] = [
+    { id: 'NotFoundUser', description: 'The current User Was Not Founded' },
+    { id: 'EmailExists', description: 'User with this email is already registered' },
+    { id: 'IdType', description: `the id's type is not valid` },
+    { id: 'ErrorToUpdateaUser', description: `there is some error to update a user, check the sended informations` },
+  ]
 
   constructor(
     private readonly userRepository: UserRepository
@@ -24,7 +36,7 @@ export class UsersService {
     })
 
     if (FindForUser)
-      throw new ConflictException({ error: "User with this email is already registered" })
+      throw new HttpException(this.ReturnErrorString("EmailExists").description, HttpStatus.CONFLICT)
 
     const hashPassWord: string = await bcryptHashAsync(createUserDto.password, 10);
 
@@ -43,7 +55,12 @@ export class UsersService {
     return await this.userRepository.find();
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<User | null> {
+    if (!IsUUID(id)) {
+      throw new HttpException(this.ReturnErrorString("IdType").description, HttpStatus.BAD_REQUEST)
+    }
+
+
     const FindedUser: User | null = await this.userRepository.findOne({
       where: { id: id }
     })
@@ -51,12 +68,65 @@ export class UsersService {
     return FindedUser
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    if (!IsUUID(id))
+      throw new HttpException(this.ReturnErrorString("IdType").description, HttpStatus.BAD_REQUEST)
+
+    const UserTOModify = await this.findOne(id);
+
+    if (!UserTOModify)
+      throw new HttpException(this.ReturnErrorString("NotFoundUser").description, HttpStatus.NOT_FOUND)
+
+    UserTOModify.email = updateUserDto.email;
+    UserTOModify.name = updateUserDto.name
+    UserTOModify.ativo = updateUserDto.ativo;
+
+    await this.userRepository.save(UserTOModify!)
   }
 
-  remove(id: number) {
-    return `Se você esta lendo isso deu certo a automação do deploy no servidor`;
+  async updatePartialUser(id: string, updateUserDto: UpdateUserDto) {
+    if (!IsUUID(id)) {
+      throw new HttpException(this.ReturnErrorString("IdType").description, HttpStatus.BAD_REQUEST)
+    }
+
+    const findedUser = await this.userRepository.findOne({
+      where: { id: id }
+    })
+
+    if (!findedUser)
+      throw new HttpException(this.ReturnErrorString("NotFoundUser").description, HttpStatus.BAD_REQUEST)
+
+    if (updateUserDto.password) {
+      const hashPassWord: string = await bcryptHashAsync(updateUserDto.password, 10);
+
+      updateUserDto.password = hashPassWord
+    }
+
+
+    Object.assign(findedUser, updateUserDto)
+
+    const UpdatedUser = await this.userRepository.save(findedUser)
+
+    if (UpdatedUser)
+      return { statusCode: HttpStatus.ACCEPTED, message: "Sucess to update a User" }
+    else
+      throw new HttpException(this.ReturnErrorString("ErrorToUpdateaUser").description, HttpStatus.BAD_REQUEST)
+  }
+
+  async remove(id: string) {
+    if (!IsUUID(id)) {
+      throw new HttpException(this.ReturnErrorString("IdType").description, HttpStatus.BAD_REQUEST)
+    }
+
+    const findedUser = await this.userRepository.findOne({
+      where: { id: id }
+    })
+
+    if (!findedUser)
+      throw new HttpException(this.ReturnErrorString("NotFoundUser").description, HttpStatus.BAD_REQUEST)
+
+    await this.userRepository.remove(findedUser)
+
   }
 
   async ExistUser(userAuth: UserLoginDto): Promise<boolean> {
@@ -80,5 +150,9 @@ export class UsersService {
 
   async VerifyPassword(user: User, password: string): Promise<boolean> {
     return await compare(password, user.password)
+  }
+
+  ReturnErrorString(id: string): errorString {
+    return this.errorStrings.find(x => x.id == id) ?? { id: "notFoundErrorString", description: "errorStringWasNotFounded" }
   }
 }

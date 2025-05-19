@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import Category from "./Category.entity";
 
 @Entity({ name: 'users' })
 export class User {
@@ -17,5 +18,6 @@ export class User {
     @Column({ name: 'ativo', default: false })
     ativo: boolean
 
-
+    @OneToMany(() => Category, (category) => category.user)
+    categories: Category[]
 }

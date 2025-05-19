@@ -15,30 +15,36 @@ export class AuthService {
     }
 
     async signIn(userAuthDto: UserLoginDto): Promise<AuthReponseDto> {
-        const existUser: boolean = await this.userService.ExistUser(userAuthDto)
-        if (!existUser)
-            throw new UnauthorizedException()
+        try {
+            const existUser: boolean = await this.userService.ExistUser(userAuthDto)
+            if (!existUser)
+                throw new UnauthorizedException()
 
-        const FindedUser = await this.userService.searchUserByEmail(userAuthDto.email)
-        if (!FindedUser)
-            throw new UnauthorizedException()
+            const FindedUser = await this.userService.searchUserByEmail(userAuthDto.email)
+            if (!FindedUser)
+                throw new UnauthorizedException()
 
-        const verifyPassword: boolean = await this.userService.VerifyPassword(FindedUser, userAuthDto.password)
+            const verifyPassword: boolean = await this.userService.VerifyPassword(FindedUser, userAuthDto.password)
 
-        if (!verifyPassword)
-            throw new UnauthorizedException()
+            if (!verifyPassword)
+                throw new UnauthorizedException()
 
-        const payload = { sub: FindedUser.id, email: FindedUser.email }
-        const token = this.jwtService.sign(payload, {
-            secret: this.configService.get<string>('JWT_SECRET'),
-            expiresIn: this.jwtExpiresInSeconds
-        })
+            const payload = { id: FindedUser.id, email: FindedUser.email }
+            const token = this.jwtService.sign(payload, {
+                secret: this.configService.get<string>('JWT_SECRET'),
+                expiresIn: this.jwtExpiresInSeconds
+            })
 
 
-        return {
-            sucess: true,
-            token: token,
-            expiresIn: this.jwtExpiresInSeconds
+            return {
+                sucess: true,
+                token: token,
+                expiresIn: this.jwtExpiresInSeconds
+            }
+        } catch (eror) {
+
+            throw new HttpException("internal server error", HttpStatus.INTERNAL_SERVER_ERROR)
+
         }
     }
 }
